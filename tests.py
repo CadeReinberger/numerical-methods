@@ -78,8 +78,8 @@ class extrapolation_tests:
     def richardson_test():
         data = [[[3/2, 1, 5/6, 3/4, 7/10], 1, .5],
                 [[2.3449999999999998, 2.30954169797145, 2.2806712962962963, 
-                   2.2567137005006828, 2.2365160349854225, 2.2192592592592595, 
-                   2.204345703125], 10, 2]]
+                  2.2567137005006828, 2.2365160349854225, 2.2192592592592595, 
+                  2.204345703125], 10, 2]]
         for seq, n, a in data:
             r = nm.extrapolation.richardson(seq, n)
             assert(np.isclose(r, a))
@@ -275,12 +275,66 @@ class integration_tests:
         integration_tests.gen_nc_test()
         integration_tests.romberg_test()
         integration_tests.simp_adaptive_test()
+        
+class differentiation_tests:
+    def classic_diff_test():
+        data = [[lambda x : 2 * x, 2, 2],
+                [math.sin, math.e, math.cos(math.e)],
+                [math.log, 2, .5],
+                [lambda x : math.exp(2*(x ** 2)), 1, 4*math.exp(2)],
+                [math.cosh, 0, 0]]
+        for back in [True, False]:
+            for f, x0, ans in data:
+                res = nm.differentiation.classic_diff(f, x0, backwards=back)
+                #this assertion has to have special lowered tolerance
+                #because differentiation is rather hard
+                assert(np.isclose(ans, res, rtol=.005, atol=.001))
+                
+    def second_order_diff_test():
+        data = [[lambda x : 2 * x, 2, 2],
+                [math.sin, math.e, math.cos(math.e)],
+                [math.log, 2, .5],
+                [lambda x : math.exp(2*(x ** 2)), 1, 4*math.exp(2)],
+                [math.cosh, 0, 0]]
+        for ident in ['b', 'c', 'f']:
+            for f, x0, ans in data:
+                res = nm.differentiation.second_order_diff(f, x0, dtype=ident)
+                #this assertion has to have special lowered tolerance
+                #because differentiation is rather hard
+                assert(np.isclose(ans, res, rtol=.005, atol=.001))
+        
+    def gen_stencil_test():
+        data = [[lambda x : 2 * x, 2, 1, 2],
+                [math.sin, math.e, 1, math.cos(math.e)],
+                [math.log, 2, 1, .5],
+                [lambda x : math.exp(2*(x ** 2)), 1, 1, 4*math.exp(2)],
+                [math.cosh, 0, 1, 0],
+                [lambda x : x**2, 1, 2, 2],
+                [lambda x : x**4, 2, 2, 48],
+                [lambda x : 3 * (x**4), 5, 3, 360]]
+        stencils = [[-2, -1, 0, 1, 2],
+                    [-6, -3, 0, 3, 6],
+                    [-1, 1, 2, 3, 4, 5, 7],
+                    [-7, -3, -1, 2, 6]]
+        for f, x0, d, ans in data:
+            for stencil in stencils:
+                res  = nm.differentiation.generalized_stencil(f, x0, stencil,
+                                                              d_ord = d)
+                #this assertion has to have special lowered tolerance
+                #because differentiation is rather hard
+                assert(np.isclose(ans, res, rtol = .01))
+                
+    def test_all():
+        differentiation_tests.classic_diff_test()
+        differentiation_tests.second_order_diff_test()
+        differentiation_tests.gen_stencil_test()
             
 def tot_test():
     util_tests.test_all()
     interpolation_tests.test_all()
     extrapolation_tests.test_all()
     integration_tests.test_all()
+    differentiation_tests.test_all()
     print('All tests passed')
     
 tot_test()

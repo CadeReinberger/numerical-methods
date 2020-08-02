@@ -435,7 +435,65 @@ class integration:
         fb = f(b)
         mid, midf, area = simp_mem(f, a, b, fa, fb)
         return rec_adapt_simp(f, a, b, fa, fb, err_tol, area, mid, midf)
+ 
+#numerical methods for differentiation of a function f
+class differentiation:
+    #normal first order forward or backwards differentation scheme. 
+    def classic_diff(f, x0, h = 1e-6, backwards = False):
+        if backwards:
+            h *= -1
+        if h == 0:
+            raise Exception('Cannot numerically differentiate with step size 0')
+        return (f(x0 + h) - f(x0)) / h
     
-    
+    #second order differentiator for first order derivative of f. types include
+    #forward, backward, or centered. 
+    def second_order_diff(f, x0, h = 1e-6, dtype = 'c'):
+        identifier = dtype.lower()[0]
+        if not identifier in ['f', 'b', 'c']:
+            raise Exception('Invalid Differentiation Type: ' + dtype)
+        #otherwise, we have a valud method
+        if identifier == 'c':
+            #centered second-order difference
+            return (f(x0 + h) - f(x0 - h)) / (2 * h)
+        elif identifier == 'f':
+            #forward second-order difference
+            return (-f(x0+2*h) + 4*f(x0+h) - 3*f(x0)) / (2 * h)
+        else:
+            #backwards first-order difference
+            return (f(x0-2*h) - 4*f(x0-h) + 3*f(x0)) / (2 * h)
 
-                        
+    #compute generalized stencil coefficients and use to get derivative. mostly
+    #based on the ideas from
+    #       http://web.media.mit.edu/~crtaylor/calculator.html. 
+    #For now just a black box matrix solver is used. A lot todo to make this 
+    #better, especially using a vandermonde solver and weight precomputation
+    #structure
+    def generalized_stencil(f, x0, sten_points, d_ord = 1, h = 1e-4):
+        n = len(sten_points)
+        #hanlde case of an undertereminded system
+        if d_ord >= n:
+            raise Exception('Cannot take derivative of order ' + str(d_ord)
+                            + ' with only ' + str(n) + 'points in stencil: ' 
+                            + 'underdetermined')
+        mat = np.zeros((n, n))
+        for j in range(n):
+            mat[0, j] = 1
+        #use dp to construct the whole vandermonde matrix. (Technically, by
+        #canonical definitions this is the transpose of a vandermonde-matrix, 
+        #but the idea is clear, anyway)
+        for i in range(1, n):
+            for j in range(n):
+                mat[i, j] = sten_points[j] * mat[i-1, j]
+        d_fac = util.product(lambda x : x, range(1, d_ord+1))
+        v = np.zeros(n)
+        v[d_ord] = d_fac
+        #these are the actual coefficients from the stencil
+        coeffs = np.linalg.solve(mat, v)
+        #compute the derivative from the stencil coefficients
+        tot = 0
+        for i in range(len(sten_points)):
+            f_val = f(x0 + h * sten_points[i])
+            tot += coeffs[i] * f_val
+        deriv = tot / (h ** d_ord)
+        return deriv   
